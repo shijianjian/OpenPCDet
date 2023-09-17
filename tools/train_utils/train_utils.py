@@ -12,6 +12,7 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
                     rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False, 
                     use_logger_to_record=False, logger=None, logger_iter_interval=50, cur_epoch=None, 
                     total_epochs=None, ckpt_save_dir=None, ckpt_save_time_interval=300, show_gpu_stat=False, use_amp=False):
+
     if total_it_each_epoch == len(train_loader):
         dataloader_iter = iter(train_loader)
 

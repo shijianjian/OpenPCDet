@@ -541,6 +541,15 @@ class WaymoDataset(DatasetTemplate):
                                'sample_idx': sample_idx, 'gt_idx': i, 'box3d_lidar': gt_boxes[i],
                                'num_points_in_gt': gt_points.shape[0], 'difficulty': difficulty[i]}
 
+                    if "keypoint_location" in annos and np.all(gt_boxes[i:i+1, :3] == annos["keypoint_box_location"], axis=1).any():
+                        for j, is_true in enumerate(np.all(gt_boxes[i:i+1, :3] == annos["keypoint_box_location"], axis=1)):
+                            if is_true:
+                                db_info.update({
+                                    'kp3d_lidar': annos['keypoint_location'][j],
+                                    'kp_visibility': annos['keypoint_visibility'][j],
+                                    'kp_mask': annos['keypoint_mask'][j],
+                                })
+
                     # it will be used if you choose to use shared memory for gt sampling
                     stacked_gt_points.append(gt_points)
                     db_info['global_data_offset'] = [point_offset_cnt, point_offset_cnt + gt_points.shape[0]]
@@ -648,6 +657,15 @@ class WaymoDataset(DatasetTemplate):
                             'sample_idx': sample_idx, 'gt_idx': i, 'box3d_lidar': gt_boxes[i],
                             'num_points_in_gt': gt_points.shape[0], 'difficulty': difficulty[i],
                             'box3d_crop': gt_boxes_crop[i]}
+
+                if "keypoint_location" in annos and np.all(gt_boxes[i:i+1, :3] == annos["keypoint_box_location"], axis=1).any():
+                    for j, is_true in enumerate(np.all(gt_boxes[i:i+1, :3] == annos["keypoint_box_location"], axis=1)):
+                        if is_true:
+                            db_info.update({
+                                'kp3d_lidar': annos['keypoint_location'][j],
+                                'kp_visibility': annos['keypoint_visibility'][j],
+                                'kp_mask': annos['keypoint_mask'][j],
+                            })
 
                 if names[i] in all_db_infos:
                     all_db_infos[names[i]].append(db_info)

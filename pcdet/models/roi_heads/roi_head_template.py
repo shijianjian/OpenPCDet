@@ -63,13 +63,19 @@ class RoIHeadTemplate(nn.Module):
         """
         if batch_dict.get('rois', None) is not None:
             return batch_dict
-            
+
         batch_size = batch_dict['batch_size']
         batch_box_preds = batch_dict['batch_box_preds']
         batch_cls_preds = batch_dict['batch_cls_preds']
+        assert False, batch_dict.keys()
         rois = batch_box_preds.new_zeros((batch_size, nms_config.NMS_POST_MAXSIZE, batch_box_preds.shape[-1]))
         roi_scores = batch_box_preds.new_zeros((batch_size, nms_config.NMS_POST_MAXSIZE))
         roi_labels = batch_box_preds.new_zeros((batch_size, nms_config.NMS_POST_MAXSIZE), dtype=torch.long)
+
+        if "batch_kp_preds" in batch_dict:
+            batch_kp_preds = batch_dict["batch_kp_preds"]
+            roi_keypoints = kp.new_zeros(
+                (batch_size, nms_config.NMS_POST_MAXSIZE, kp.shape[-2], kp.shape[-1]))
 
         for index in range(batch_size):
             if batch_dict.get('batch_index', None) is not None:
@@ -94,18 +100,25 @@ class RoIHeadTemplate(nn.Module):
             roi_scores[index, :len(selected)] = cur_roi_scores[selected]
             roi_labels[index, :len(selected)] = cur_roi_labels[selected]
 
+            if "batch_kp_preds" in batch_dict:
+                kp_preds = batch_kp_preds[batch_mask]
+                roi_keypoints[index, :len(selected), :, :] = kp_preds[selected]
+
         batch_dict['rois'] = rois
         batch_dict['roi_scores'] = roi_scores
         batch_dict['roi_labels'] = roi_labels + 1
         batch_dict['has_class_labels'] = True if batch_cls_preds.shape[-1] > 1 else False
         batch_dict.pop('batch_index', None)
+
+        if "batch_kp_preds" in batch_dict:
+            batch_dict['roi_keypoints'] = roi_keypoints
         return batch_dict
 
     def assign_targets(self, batch_dict):
         batch_size = batch_dict['batch_size']
         with torch.no_grad():
             targets_dict = self.proposal_target_layer.forward(batch_dict)
-
+        # assert False, (targets_dict.keys(), targets_dict['gt_of_rois'].shape, targets_dict['gt_of_kp'].shape)
         rois = targets_dict['rois']  # (B, N, 7 + C)
         gt_of_rois = targets_dict['gt_of_rois']  # (B, N, 7 + C + 1)
         targets_dict['gt_of_rois_src'] = gt_of_rois.clone().detach()
@@ -131,6 +144,15 @@ class RoIHeadTemplate(nn.Module):
 
         gt_of_rois[:, :, 6] = heading_label
         targets_dict['gt_of_rois'] = gt_of_rois
+
+        if "gt_of_kp" in targets_dict:
+            gt_of_kp = targets_dict['gt_of_kp']
+            gt_of_kp[:, :, :, 0:3] = gt_of_kp[:, :, :, 0:3] - roi_center.unsqueeze(-2)
+            gt_of_kp = common_utils.rotate_points_along_z(
+                points=gt_of_kp.view(-1, gt_of_kp.shape[-2], gt_of_kp.shape[-1]), angle=-roi_ry.view(-1)
+            ).view(batch_size, -1, gt_of_kp.shape[-2], gt_of_kp.shape[-1])
+            targets_dict['gt_of_kp'] = gt_of_kp
+
         return targets_dict
 
     def get_box_reg_layer_loss(self, forward_ret_dict):

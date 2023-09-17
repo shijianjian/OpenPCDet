@@ -191,6 +191,7 @@ class DatasetTemplate(torch_data.Dataset):
             if 'calib' in data_dict:
                 data_dict['calib'] = calib
         data_dict = self.set_lidar_aug_matrix(data_dict)
+
         if data_dict.get('gt_boxes', None) is not None:
             selected = common_utils.keep_arrays_by_name(data_dict['gt_names'], self.class_names)
             data_dict['gt_boxes'] = data_dict['gt_boxes'][selected]
@@ -247,6 +248,17 @@ class DatasetTemplate(torch_data.Dataset):
                     batch_gt_boxes3d = np.zeros((batch_size, max_gt, val[0].shape[-1]), dtype=np.float32)
                     for k in range(batch_size):
                         batch_gt_boxes3d[k, :val[k].__len__(), :] = val[k]
+                    ret[key] = batch_gt_boxes3d
+
+                elif key in [
+                    'keypoint_location', 'keypoint_visibility', 'keypoint_mask',
+                    'keypoint_dims', 'keypoint_has_batch', 'keypoint_has_batch_dimension',
+                    'keypoint_box_center', 'keypoint_box_size'
+                ]:
+                    max_gt = max([len(x) for x in val])
+                    batch_gt_boxes3d = np.zeros((batch_size, max_gt, *val[0].shape[1:]), dtype=np.float32)
+                    for k in range(batch_size):
+                        batch_gt_boxes3d[k, :val[k].__len__(), ...] = val[k]
                     ret[key] = batch_gt_boxes3d
 
                 elif key in ['roi_boxes']:
@@ -318,7 +330,7 @@ class DatasetTemplate(torch_data.Dataset):
                 else:
                     ret[key] = np.stack(val, axis=0)
             except:
-                print('Error in collate_batch: key=%s' % key)
+                print('Error in collate_batch: key=%s' % key, [v.shape for v in val])
                 raise TypeError
 
         ret['batch_size'] = batch_size * batch_size_ratio

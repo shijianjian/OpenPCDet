@@ -10,6 +10,7 @@ import numpy as np
 from ...utils import common_utils
 import tensorflow as tf
 from waymo_open_dataset.utils import frame_utils, transform_utils, range_image_utils
+from waymo_open_dataset.utils import keypoint_data
 from waymo_open_dataset import dataset_pb2
 
 try:
@@ -24,8 +25,8 @@ def generate_labels(frame, pose):
     obj_name, difficulty, dimensions, locations, heading_angles = [], [], [], [], []
     tracking_difficulty, speeds, accelerations, obj_ids = [], [], [], []
     num_points_in_gt = []
+    all_idx, all_keypoints, all_boxes = [], [], []
     laser_labels = frame.laser_labels
-
     for i in range(len(laser_labels)):
         box = laser_labels[i].box
         class_ind = laser_labels[i].type
@@ -41,6 +42,44 @@ def generate_labels(frame, pose):
         speeds.append([laser_labels[i].metadata.speed_x, laser_labels[i].metadata.speed_y])
         accelerations.append([laser_labels[i].metadata.accel_x, laser_labels[i].metadata.accel_y])
 
+        if laser_labels[i].HasField('laser_keypoints'):
+            kp_box = keypoint_data.create_laser_box_tensors(laser_labels[i].box, dtype=tf.float32)
+            keypoints = keypoint_data.create_laser_keypoints_tensors(
+                laser_labels[i].laser_keypoints.keypoint,
+                default_location=kp_box.center,
+                order=keypoint_data.CANONICAL_ORDER_LASER,
+                dtype=tf.float32
+            )
+            all_idx.append(i)
+            all_keypoints.append(keypoints)
+            all_boxes.append(kp_box)
+
+    keypoints = {}
+    if len(all_keypoints) != 0:
+        keypoint_tensors = keypoint_data.stack_keypoints(all_keypoints)
+        box_tensors = keypoint_data.stack_boxes(all_boxes)
+
+        keypoints["keypoint_location"] = keypoint_tensors.location.numpy()
+        keypoints["keypoint_visibility"] = keypoint_tensors.visibility.numpy()
+        keypoints["keypoint_mask"] = keypoint_tensors.mask.numpy()
+        keypoints["keypoint_dims"] = np.array([keypoint_tensors.dims] * keypoints["keypoint_location"].shape[0])
+        keypoints["keypoint_has_batch_dimension"] = np.array([keypoint_tensors.has_batch_dimension] * keypoints["keypoint_location"].shape[0])
+
+        keypoints["keypoint_box_center"] = box_tensors.center.numpy()
+        keypoints["keypoint_box_size"] = box_tensors.size.numpy()
+
+        keypoints["keypoint_box_name"] = np.array(obj_name)[all_idx]
+        keypoints["keypoint_box_difficulty"] = np.array(difficulty)[all_idx]
+        keypoints["keypoint_box_dimensions"] = np.array(dimensions)[all_idx]
+        keypoints["keypoint_box_location"] = np.array(locations)[all_idx]
+        keypoints["keypoint_box_heading_angles"] = np.array(heading_angles)[all_idx]
+
+        keypoints["keypoint_box_obj_ids"] = np.array(obj_ids)[all_idx]
+        keypoints["keypoint_box_tracking_difficulty"] = np.array(tracking_difficulty)[all_idx]
+        keypoints["keypoint_box_num_points_in_gt"] = np.array(num_points_in_gt)[all_idx]
+        keypoints["keypoint_box_speed_global"] = np.array(speeds)[all_idx]
+        keypoints["keypoint_box_accel_global"] = np.array(accelerations)[all_idx]
+
     annotations = {}
     annotations['name'] = np.array(obj_name)
     annotations['difficulty'] = np.array(difficulty)
@@ -54,7 +93,9 @@ def generate_labels(frame, pose):
     annotations['speed_global'] = np.array(speeds)
     annotations['accel_global'] = np.array(accelerations)
 
-    annotations = common_utils.drop_info_with_name(annotations, name='unknown')
+    annotations.update(keypoints)
+
+    annotations = common_utils.drop_info_with_name(annotations, name='unknown', ignore_name='keypoint')
     if annotations['name'].__len__() > 0:
         global_speed = np.pad(annotations['speed_global'], ((0, 0), (0, 1)), mode='constant', constant_values=0)  # (N, 3)
         speed = np.dot(global_speed, np.linalg.inv(pose[:3, :3].T))
@@ -264,5 +305,3 @@ def process_single_sequence(sequence_file, save_path, sampled_interval, has_labe
 
     print('Infos are saved to (sampled_interval=%d): %s' % (sampled_interval, pkl_file))
     return sequence_infos
-
-

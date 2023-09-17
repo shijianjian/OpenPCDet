@@ -240,6 +240,29 @@ def decode_bbox_from_heatmap(heatmap, rot_cos, rot_sin, center, center_z, dim,
             ret_pred_dicts[-1]['pred_iou'] = iou[k, cur_mask]
     return ret_pred_dicts
 
+
+def decode_keypoints_from_heatmap(heatmap, rot_cos, rot_sin, center, center_z, dim,
+                                  point_cloud_range=None, voxel_size=None, feature_map_stride=None, vel=None, iou=None, K=100,
+                                  circle_nms=False, score_thresh=None, post_center_limit_range=None):
+    batch_size, num_class, _, _ = heatmap.size()
+
+    if circle_nms:
+        # TODO: not checked yet
+        assert False, 'not checked yet'
+        heatmap = _nms(heatmap)
+
+    scores, inds, class_ids, ys, xs = _topk(heatmap, K=K)
+    center = _transpose_and_gather_feat(center, inds).view(batch_size, K, 2)
+    rot_sin = _transpose_and_gather_feat(rot_sin, inds).view(batch_size, K, 1)
+    rot_cos = _transpose_and_gather_feat(rot_cos, inds).view(batch_size, K, 1)
+    center_z = _transpose_and_gather_feat(center_z, inds).view(batch_size, K, 1)
+    dim = _transpose_and_gather_feat(dim, inds).view(batch_size, K, 3)
+
+    angle = torch.atan2(rot_sin, rot_cos)
+    xs = xs.view(batch_size, K, 1) + center[:, :, 0:1]
+    ys = ys.view(batch_size, K, 1) + center[:, :, 1:2]
+
+
 def _topk_1d(scores, batch_size, batch_idx, obj, K=40, nuscenes=False):
     # scores: (N, num_classes)
     topk_score_list = []

@@ -66,9 +66,15 @@ class DataAugmentor(object):
             if 'roi_boxes' in data_dict.keys():
                 num_frame, num_rois,dim = data_dict['roi_boxes'].shape
                 roi_boxes, _, _ = getattr(augmentor_utils, 'random_flip_along_%s' % cur_axis)(
-                data_dict['roi_boxes'].reshape(-1,dim), np.zeros([1,3]), return_flip=True, enable=enable
+                    data_dict['roi_boxes'].reshape(-1,dim), np.zeros([1,3]), return_flip=True, enable=enable
                 )
                 data_dict['roi_boxes'] = roi_boxes.reshape(num_frame, num_rois,dim)
+            if 'keypoint_location' in data_dict.keys():
+                batchsize, n_joints, dim = data_dict["keypoint_location"].shape
+                _, keypoint_location, _ = getattr(augmentor_utils, 'random_flip_along_%s' % cur_axis)(
+                    np.zeros([1,9]), data_dict["keypoint_location"].reshape(-1, 3), return_flip=True, enable=enable
+                )
+                data_dict['keypoint_location'] = keypoint_location.reshape(batchsize, n_joints, dim)
 
         data_dict['gt_boxes'] = gt_boxes
         data_dict['points'] = points
@@ -86,8 +92,13 @@ class DataAugmentor(object):
         if 'roi_boxes' in data_dict.keys():
             num_frame, num_rois,dim = data_dict['roi_boxes'].shape
             roi_boxes, _, _ = augmentor_utils.global_rotation(
-            data_dict['roi_boxes'].reshape(-1, dim), np.zeros([1, 3]), rot_range=rot_range, return_rot=True, noise_rotation=noise_rot)
+                data_dict['roi_boxes'].reshape(-1, dim), np.zeros([1, 3]), rot_range=rot_range, return_rot=True, noise_rotation=noise_rot)
             data_dict['roi_boxes'] = roi_boxes.reshape(num_frame, num_rois,dim)
+        if 'keypoint_location' in data_dict.keys():
+            batchsize, n_joints, dim = data_dict["keypoint_location"].shape
+            _, keypoint_location, _ = augmentor_utils.global_rotation(
+                np.zeros([1,9]), data_dict["keypoint_location"].reshape(-1, 3), rot_range=rot_range, return_rot=True, noise_rotation=noise_rot)
+            data_dict['keypoint_location'] = keypoint_location.reshape(batchsize, n_joints, dim)
 
         data_dict['gt_boxes'] = gt_boxes
         data_dict['points'] = points
@@ -107,6 +118,8 @@ class DataAugmentor(object):
             gt_boxes, points, noise_scale = augmentor_utils.global_scaling(
                 data_dict['gt_boxes'], data_dict['points'], config['WORLD_SCALE_RANGE'], return_scale=True
             )
+        if 'keypoint_location' in data_dict.keys():
+            data_dict['keypoint_location'] = data_dict['keypoint_location'] * noise_scale
 
         data_dict['gt_boxes'] = gt_boxes
         data_dict['points'] = points
@@ -182,12 +195,19 @@ class DataAugmentor(object):
         rot_range = config['LOCAL_ROT_ANGLE']
         if not isinstance(rot_range, list):
             rot_range = [-rot_range, rot_range]
-        gt_boxes, points = augmentor_utils.local_rotation(
-            data_dict['gt_boxes'], data_dict['points'], rot_range=rot_range
-        )
+        if "keypoint_location" in data_dict:
+            gt_boxes, points, keypoint_location = augmentor_utils.local_rotation(
+                data_dict['gt_boxes'], data_dict['points'], rot_range=rot_range, keypoint_location=data_dict['keypoint_location']
+            )
+        else:
+            gt_boxes, points = augmentor_utils.local_rotation(
+                data_dict['gt_boxes'], data_dict['points'], rot_range=rot_range
+            )
 
         data_dict['gt_boxes'] = gt_boxes
         data_dict['points'] = points
+        if "keypoint_location" in data_dict:
+            data_dict['keypoint_location'] = keypoint_location
         return data_dict
 
     def random_local_scaling(self, data_dict=None, config=None):
@@ -196,12 +216,19 @@ class DataAugmentor(object):
         """
         if data_dict is None:
             return partial(self.random_local_scaling, config=config)
-        gt_boxes, points = augmentor_utils.local_scaling(
-            data_dict['gt_boxes'], data_dict['points'], config['LOCAL_SCALE_RANGE']
-        )
+        if "keypoint_location" in data_dict:
+            gt_boxes, points, keypoint_location = augmentor_utils.local_scaling(
+                data_dict['gt_boxes'], data_dict['points'], config['LOCAL_SCALE_RANGE'], data_dict['keypoint_location']
+            )
+        else:
+            gt_boxes, points = augmentor_utils.local_scaling(
+                data_dict['gt_boxes'], data_dict['points'], config['LOCAL_SCALE_RANGE']
+            )
 
         data_dict['gt_boxes'] = gt_boxes
         data_dict['points'] = points
+        if "keypoint_location" in data_dict:
+            data_dict['keypoint_location'] = keypoint_location
         return data_dict
 
     def random_world_frustum_dropout(self, data_dict=None, config=None):
@@ -215,18 +242,26 @@ class DataAugmentor(object):
         gt_boxes, points = data_dict['gt_boxes'], data_dict['points']
         for direction in config['DIRECTION']:
             assert direction in ['top', 'bottom', 'left', 'right']
-            gt_boxes, points = getattr(augmentor_utils, 'global_frustum_dropout_%s' % direction)(
-                gt_boxes, points, intensity_range,
-            )
+            if "keypoint_location" in data_dict:
+                gt_boxes, points, keypoint_location = getattr(augmentor_utils, 'global_frustum_dropout_%s' % direction)(
+                    gt_boxes, points, intensity_range, data_dict['keypoint_location']
+                )
+            else:
+                gt_boxes, points = getattr(augmentor_utils, 'global_frustum_dropout_%s' % direction)(
+                    gt_boxes, points, intensity_range
+                )
 
         data_dict['gt_boxes'] = gt_boxes
         data_dict['points'] = points
+        if "keypoint_location" in data_dict:
+            data_dict['keypoint_location'] = keypoint_location
         return data_dict
 
     def random_local_frustum_dropout(self, data_dict=None, config=None):
         """
         Please check the correctness of it before using.
         """
+        # NOTE: This will not update keypoints
         if data_dict is None:
             return partial(self.random_local_frustum_dropout, config=config)
 
@@ -299,6 +334,7 @@ class DataAugmentor(object):
         Returns:
         """
         for cur_augmentor in self.data_augmentor_queue:
+            # print(cur_augmentor, data_dict['gt_boxes'].shape, data_dict['keypoint_location'].shape)
             data_dict = cur_augmentor(data_dict=data_dict)
 
         data_dict['gt_boxes'][:, 6] = common_utils.limit_period(
@@ -312,6 +348,10 @@ class DataAugmentor(object):
             gt_boxes_mask = data_dict['gt_boxes_mask']
             data_dict['gt_boxes'] = data_dict['gt_boxes'][gt_boxes_mask]
             data_dict['gt_names'] = data_dict['gt_names'][gt_boxes_mask]
+
+            if 'keypoint_location' in data_dict:
+                data_dict['keypoint_location'] = data_dict['keypoint_location'][gt_boxes_mask]
+
             if 'gt_boxes2d' in data_dict:
                 data_dict['gt_boxes2d'] = data_dict['gt_boxes2d'][gt_boxes_mask]
 

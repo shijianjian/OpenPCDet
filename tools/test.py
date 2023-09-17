@@ -7,6 +7,7 @@ import re
 import time
 from pathlib import Path
 
+import pickle
 import numpy as np
 import torch
 from tensorboardX import SummaryWriter
@@ -194,6 +195,9 @@ def main():
         batch_size=args.batch_size,
         dist=dist_test, workers=args.workers, logger=logger, training=False
     )
+
+    with open(eval_output_dir / "test_gt_infos.pkl", "wb") as f:
+        pickle.dump(test_set.infos, f)
 
     model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=test_set)
     with torch.no_grad():

@@ -24,11 +24,15 @@ def limit_period(val, offset=0.5, period=np.pi):
     return ans.numpy() if is_numpy else ans
 
 
-def drop_info_with_name(info, name):
+def drop_info_with_name(info, name, ignore_name="keypoint"):
     ret_info = {}
     keep_indices = [i for i, x in enumerate(info['name']) if x != name]
     for key in info.keys():
-        ret_info[key] = info[key][keep_indices]
+        if ignore_name is not None and key.startswith(ignore_name):
+            # Include the ignored information
+            ret_info[key] = info[key]
+        else:
+            ret_info[key] = info[key][keep_indices]
     return ret_info
 
 

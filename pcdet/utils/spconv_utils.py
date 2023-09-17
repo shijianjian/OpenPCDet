@@ -4,10 +4,8 @@ import spconv
 if float(spconv.__version__[2:]) >= 2.2:
     spconv.constants.SPCONV_USE_DIRECT_TABLE = False
     
-try:
-    import spconv.pytorch as spconv
-except:
-    import spconv as spconv
+import spconv.pytorch as spconv
+from spconv.pytorch.modules import SparseModule
 
 import torch.nn as nn
 

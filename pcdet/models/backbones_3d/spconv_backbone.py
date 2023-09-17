@@ -2,7 +2,7 @@ from functools import partial
 
 import torch.nn as nn
 
-from ...utils.spconv_utils import replace_feature, spconv
+from ...utils.spconv_utils import replace_feature, spconv, SparseModule
 
 
 def post_act_block(in_channels, out_channels, kernel_size, indice_key=None, stride=1, padding=0,
@@ -27,7 +27,7 @@ def post_act_block(in_channels, out_channels, kernel_size, indice_key=None, stri
     return m
 
 
-class SparseBasicBlock(spconv.SparseModule):
+class SparseBasicBlock(SparseModule):
     expansion = 1
 
     def __init__(self, inplanes, planes, stride=1, bias=None, norm_fn=None, downsample=None, indice_key=None):

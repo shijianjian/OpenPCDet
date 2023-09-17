@@ -3,6 +3,7 @@ from .PartA2_net import PartA2Net
 from .point_rcnn import PointRCNN
 from .pointpillar import PointPillar
 from .pv_rcnn import PVRCNN
+from .pv_rcnn_kp import PVRCNN_KP
 from .second_net import SECONDNet
 from .second_net_iou import SECONDNetIoU
 from .caddn import CaDDN
@@ -21,6 +22,7 @@ __all__ = {
     'SECONDNet': SECONDNet,
     'PartA2Net': PartA2Net,
     'PVRCNN': PVRCNN,
+    'PVRCNN_KP': PVRCNN_KP,
     'PointPillar': PointPillar,
     'PointRCNN': PointRCNN,
     'SECONDNetIoU': SECONDNetIoU,

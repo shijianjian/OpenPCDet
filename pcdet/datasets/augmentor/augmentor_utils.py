@@ -10,6 +10,7 @@ def random_flip_along_x(gt_boxes, points, return_flip=False, enable=None):
     Args:
         gt_boxes: (N, 7 + C), [x, y, z, dx, dy, dz, heading, [vx], [vy]]
         points: (M, 3 + C)
+        keypoint: (N, n, 3)
     Returns:
     """
     if enable is None:
@@ -21,6 +22,7 @@ def random_flip_along_x(gt_boxes, points, return_flip=False, enable=None):
         
         if gt_boxes.shape[1] > 7:
             gt_boxes[:, 8] = -gt_boxes[:, 8]
+
     if return_flip:
         return gt_boxes, points, enable
     return gt_boxes, points
@@ -216,7 +218,7 @@ def random_local_translation_along_z(gt_boxes, points, offset_range):
     return gt_boxes, points
 
 
-def global_frustum_dropout_top(gt_boxes, points, intensity_range):
+def global_frustum_dropout_top(gt_boxes, points, intensity_range, keypoint_location=None):
     """
     Args:
         gt_boxes: (N, 7), [x, y, z, dx, dy, dz, heading, [vx], [vy]],
@@ -230,10 +232,15 @@ def global_frustum_dropout_top(gt_boxes, points, intensity_range):
     
     points = points[points[:, 2] < threshold]
     gt_boxes = gt_boxes[gt_boxes[:, 2] < threshold]
+    # Drop the keypoints if the boxes are suppressed
+    if keypoint_location is not None:
+        keypoint_location = keypoint_location[gt_boxes[:, 1] > threshold]
+        return gt_boxes, points, keypoint_location
+
     return gt_boxes, points
 
 
-def global_frustum_dropout_bottom(gt_boxes, points, intensity_range):
+def global_frustum_dropout_bottom(gt_boxes, points, intensity_range, keypoint_location=None):
     """
     Args:
         gt_boxes: (N, 7), [x, y, z, dx, dy, dz, heading, [vx], [vy]],
@@ -246,11 +253,15 @@ def global_frustum_dropout_bottom(gt_boxes, points, intensity_range):
     threshold = np.min(points[:, 2]) + intensity * (np.max(points[:, 2]) - np.min(points[:, 2]))
     points = points[points[:, 2] > threshold]
     gt_boxes = gt_boxes[gt_boxes[:, 2] > threshold]
+    # Drop the keypoints if the boxes are suppressed
+    if keypoint_location is not None:
+        keypoint_location = keypoint_location[gt_boxes[:, 1] > threshold]
+        return gt_boxes, points, keypoint_location
     
     return gt_boxes, points
 
 
-def global_frustum_dropout_left(gt_boxes, points, intensity_range):
+def global_frustum_dropout_left(gt_boxes, points, intensity_range, keypoint_location=None):
     """
     Args:
         gt_boxes: (N, 7), [x, y, z, dx, dy, dz, heading, [vx], [vy]],
@@ -263,11 +274,15 @@ def global_frustum_dropout_left(gt_boxes, points, intensity_range):
     threshold = np.max(points[:, 1]) - intensity * (np.max(points[:, 1]) - np.min(points[:, 1]))
     points = points[points[:, 1] < threshold]
     gt_boxes = gt_boxes[gt_boxes[:, 1] < threshold]
+    # Drop the keypoints if the boxes are suppressed
+    if keypoint_location is not None:
+        keypoint_location = keypoint_location[gt_boxes[:, 1] > threshold]
+        return gt_boxes, points, keypoint_location
     
     return gt_boxes, points
 
 
-def global_frustum_dropout_right(gt_boxes, points, intensity_range):
+def global_frustum_dropout_right(gt_boxes, points, intensity_range, keypoint_location=None):
     """
     Args:
         gt_boxes: (N, 7), [x, y, z, dx, dy, dz, heading, [vx], [vy]],
@@ -280,16 +295,21 @@ def global_frustum_dropout_right(gt_boxes, points, intensity_range):
     threshold = np.min(points[:, 1]) + intensity * (np.max(points[:, 1]) - np.min(points[:, 1]))
     points = points[points[:, 1] > threshold]
     gt_boxes = gt_boxes[gt_boxes[:, 1] > threshold]
-    
+    # Drop the keypoints if the boxes are suppressed
+    if keypoint_location is not None:
+        keypoint_location = keypoint_location[gt_boxes[:, 1] > threshold]
+        return gt_boxes, points, keypoint_location
+
     return gt_boxes, points
 
 
-def local_scaling(gt_boxes, points, scale_range):
+def local_scaling(gt_boxes, points, scale_range, keypoint_location=None):
     """
     Args:
         gt_boxes: (N, 7), [x, y, z, dx, dy, dz, heading]
         points: (M, 3 + C),
         scale_range: [min, max]
+        keypoint_location: optional, (N, n_joints, 3)
     Returns:
     """
     if scale_range[1] - scale_range[0] < 1e-3:
@@ -315,15 +335,21 @@ def local_scaling(gt_boxes, points, scale_range):
         points[mask, 2] += box[2]
         
         gt_boxes[idx, 3:6] *= noise_scale
+
+        if keypoint_location is not None:
+            keypoint_location[idx, :, :3] *= noise_scale
+            return gt_boxes, points, keypoint_location
+
     return gt_boxes, points
 
 
-def local_rotation(gt_boxes, points, rot_range):
+def local_rotation(gt_boxes, points, rot_range, keypoint_location=None):
     """
     Args:
         gt_boxes: (N, 7), [x, y, z, dx, dy, dz, heading, [vx], [vy]]
         points: (M, 3 + C),
         rot_range: [min, max]
+        keypoint_location: (N, n, 3)
     Returns:
     """
     # augs = {}
@@ -343,10 +369,12 @@ def local_rotation(gt_boxes, points, rot_range):
         box[0] -= centroid_x
         box[1] -= centroid_y
         box[2] -= centroid_z
-        
+
         # apply rotation
-        points[mask, :] = common_utils.rotate_points_along_z(points[np.newaxis, mask, :], np.array([noise_rotation]))[0]
-        box[0:3] = common_utils.rotate_points_along_z(box[np.newaxis, np.newaxis, 0:3], np.array([noise_rotation]))[0][0]
+        points[mask, :] = common_utils.rotate_points_along_z(
+            points[np.newaxis, mask, :], np.array([noise_rotation]))[0]
+        box[0:3] = common_utils.rotate_points_along_z(
+            box[np.newaxis, np.newaxis, 0:3], np.array([noise_rotation]))[0][0]
         
         # tranlation back to original position
         points[mask, 0] += centroid_x
@@ -362,6 +390,17 @@ def local_rotation(gt_boxes, points, rot_range):
                 np.hstack((gt_boxes[idx, 7:9], np.zeros((gt_boxes.shape[0], 1))))[np.newaxis, :, :],
                 np.array([noise_rotation])
             )[0][:, 0:2]
+
+        if keypoint_location is not None:
+            keypoint_location[idx, :, 0] -= centroid_x
+            keypoint_location[idx, :, 1] -= centroid_y
+            keypoint_location[idx, :, 2] -= centroid_z
+            keypoint_location[idx:idx + 1, :, :] = common_utils.rotate_points_along_z(
+                keypoint_location[idx:idx + 1, :, :], np.array([noise_rotation]))
+            keypoint_location[idx, :, 0] += centroid_x
+            keypoint_location[idx, :, 1] += centroid_y
+            keypoint_location[idx, :, 2] += centroid_z
+            return gt_boxes, points, keypoint_location
     
     return gt_boxes, points
 

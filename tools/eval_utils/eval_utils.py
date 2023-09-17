@@ -77,6 +77,8 @@ def eval_one_epoch(cfg, args, model, dataloader, epoch_id, logger, dist_test=Fal
             batch_dict, pred_dicts, class_names,
             output_path=final_output_dir if args.save_to_file else None
         )
+        # if annos[0]["kps_lidar"].shape[0] != 0:
+        #     assert False, ([(annos[i]["kps_lidar"], annos[i]["boxes_lidar"]) for i in [0, 1]])
         det_annos += annos
         if cfg.LOCAL_RANK == 0:
             progress_bar.set_postfix(disp_dict)

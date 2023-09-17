@@ -9,6 +9,7 @@ from .dataset import DatasetTemplate
 from .kitti.kitti_dataset import KittiDataset
 from .nuscenes.nuscenes_dataset import NuScenesDataset
 from .waymo.waymo_dataset import WaymoDataset
+from .waymo.waymo_dataset_kp import WaymoDatasetKP
 from .pandaset.pandaset_dataset import PandasetDataset
 from .lyft.lyft_dataset import LyftDataset
 from .once.once_dataset import ONCEDataset
@@ -20,6 +21,7 @@ __all__ = {
     'KittiDataset': KittiDataset,
     'NuScenesDataset': NuScenesDataset,
     'WaymoDataset': WaymoDataset,
+    'WaymoDatasetKP': WaymoDatasetKP,
     'PandasetDataset': PandasetDataset,
     'LyftDataset': LyftDataset,
     'ONCEDataset': ONCEDataset,
@@ -68,14 +70,14 @@ def build_dataloader(dataset_cfg, class_names, batch_size, dist, root_path=None,
 
     if dist:
         if training:
-            sampler = torch.utils.data.distributed.DistributedSampler(dataset)
+            sampler = _DistributedSampler(dataset)
         else:
             rank, world_size = common_utils.get_dist_info()
             sampler = DistributedSampler(dataset, world_size, rank, shuffle=False)
     else:
         sampler = None
     dataloader = DataLoader(
-        dataset, batch_size=batch_size, pin_memory=True, num_workers=workers,
+        dataset, batch_size=batch_size, pin_memory=False, num_workers=workers,
         shuffle=(sampler is None) and training, collate_fn=dataset.collate_batch,
         drop_last=False, sampler=sampler, timeout=0, worker_init_fn=partial(common_utils.worker_init_fn, seed=seed)
     )

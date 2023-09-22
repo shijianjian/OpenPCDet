@@ -67,15 +67,15 @@ class RoIHeadTemplate(nn.Module):
         batch_size = batch_dict['batch_size']
         batch_box_preds = batch_dict['batch_box_preds']
         batch_cls_preds = batch_dict['batch_cls_preds']
-        assert False, batch_dict.keys()
+
         rois = batch_box_preds.new_zeros((batch_size, nms_config.NMS_POST_MAXSIZE, batch_box_preds.shape[-1]))
         roi_scores = batch_box_preds.new_zeros((batch_size, nms_config.NMS_POST_MAXSIZE))
         roi_labels = batch_box_preds.new_zeros((batch_size, nms_config.NMS_POST_MAXSIZE), dtype=torch.long)
 
         if "batch_kp_preds" in batch_dict:
             batch_kp_preds = batch_dict["batch_kp_preds"]
-            roi_keypoints = kp.new_zeros(
-                (batch_size, nms_config.NMS_POST_MAXSIZE, kp.shape[-2], kp.shape[-1]))
+            roi_keypoints = batch_kp_preds.new_zeros(
+                (batch_size, nms_config.NMS_POST_MAXSIZE, batch_kp_preds.shape[-2], batch_kp_preds.shape[-1]))
 
         for index in range(batch_size):
             if batch_dict.get('batch_index', None) is not None:

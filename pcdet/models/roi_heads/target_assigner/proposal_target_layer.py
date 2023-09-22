@@ -32,7 +32,7 @@ class ProposalTargetLayer(nn.Module):
         """
 
         if "keypoint_location" in batch_dict:
-            batch_rois, batch_gt_of_rois, batch_roi_ious, batch_roi_scores, batch_roi_labels, batch_gt_of_kp = self.sample_rois_for_rcnn(
+            batch_rois, batch_gt_of_rois, batch_roi_ious, batch_roi_scores, batch_roi_labels, batch_gt_of_kp, batch_gt_of_kp_vis, batch_gt_of_kp_mask = self.sample_rois_for_rcnn(
                 batch_dict=batch_dict
             )
         else:
@@ -65,7 +65,7 @@ class ProposalTargetLayer(nn.Module):
             targets_dict = {'rois': batch_rois, 'gt_of_rois': batch_gt_of_rois, 'gt_of_kp': batch_gt_of_kp, 'gt_iou_of_rois': batch_roi_ious,
                             'roi_scores': batch_roi_scores, 'roi_labels': batch_roi_labels,
                             'reg_valid_mask': reg_valid_mask,
-                            'rcnn_cls_labels': batch_cls_labels}
+                            'rcnn_cls_labels': batch_cls_labels, 'batch_gt_of_kp_vis': batch_gt_of_kp_vis, 'batch_gt_of_kp_mask': batch_gt_of_kp_mask}
         else:
             targets_dict = {'rois': batch_rois, 'gt_of_rois': batch_gt_of_rois, 'gt_iou_of_rois': batch_roi_ious,
                             'roi_scores': batch_roi_scores, 'roi_labels': batch_roi_labels,
@@ -103,6 +103,12 @@ class ProposalTargetLayer(nn.Module):
             keypoint_location = batch_dict["keypoint_location"]
             batch_gt_of_kp = keypoint_location.new_zeros(
                 (batch_size, self.roi_sampler_cfg.ROI_PER_IMAGE, keypoint_location.shape[-2], keypoint_location.shape[-1]))
+            keypoint_visibility = batch_dict["keypoint_visibility"]
+            batch_gt_of_kp_vis = keypoint_visibility.new_zeros(
+                (batch_size, self.roi_sampler_cfg.ROI_PER_IMAGE, keypoint_visibility.shape[-1]))
+            keypoint_mask = batch_dict["keypoint_mask"]
+            batch_gt_of_kp_mask = keypoint_mask.new_zeros(
+                (batch_size, self.roi_sampler_cfg.ROI_PER_IMAGE, keypoint_mask.shape[-1]))
 
         for index in range(batch_size):
             cur_roi, cur_gt, cur_roi_labels, cur_roi_scores = \
@@ -131,9 +137,11 @@ class ProposalTargetLayer(nn.Module):
             batch_gt_of_rois[index] = cur_gt[gt_assignment[sampled_inds]]
             if "keypoint_location" in batch_dict:
                 batch_gt_of_kp[index] = keypoint_location[index, gt_assignment[sampled_inds]]
+                batch_gt_of_kp_vis[index] = keypoint_visibility[index, gt_assignment[sampled_inds]]
+                batch_gt_of_kp_mask[index] = keypoint_mask[index, gt_assignment[sampled_inds]]
 
         if "keypoint_location" in batch_dict:
-            return batch_rois, batch_gt_of_rois, batch_roi_ious, batch_roi_scores, batch_roi_labels, batch_gt_of_kp
+            return batch_rois, batch_gt_of_rois, batch_roi_ious, batch_roi_scores, batch_roi_labels, batch_gt_of_kp, batch_gt_of_kp_vis, batch_gt_of_kp_mask
 
         return batch_rois, batch_gt_of_rois, batch_roi_ious, batch_roi_scores, batch_roi_labels
 

@@ -139,7 +139,7 @@ def draw_multi_grid_range(fig, grid_size=20, bv_range=(-60, -60, 60, 60)):
     return fig
 
 
-def draw_scenes(points, gt_boxes=None, ref_boxes=None, ref_scores=None, ref_labels=None):
+def draw_scenes(points, gt_boxes=None, gt_keypoints=None, ref_boxes=None, ref_scores=None, ref_labels=None, ref_keypoints=None):
     if not isinstance(points, np.ndarray):
         points = points.cpu().numpy()
     if ref_boxes is not None and not isinstance(ref_boxes, np.ndarray):
@@ -150,12 +150,18 @@ def draw_scenes(points, gt_boxes=None, ref_boxes=None, ref_scores=None, ref_labe
         ref_scores = ref_scores.cpu().numpy()
     if ref_labels is not None and not isinstance(ref_labels, np.ndarray):
         ref_labels = ref_labels.cpu().numpy()
+    if gt_keypoints is not None and not isinstance(gt_keypoints, np.ndarray):
+        gt_keypoints = gt_keypoints.cpu().numpy()
+    if ref_keypoints is not None and not isinstance(ref_keypoints, np.ndarray):
+        ref_keypoints = ref_keypoints.cpu().numpy()
 
     fig = visualize_pts(points)
     fig = draw_multi_grid_range(fig, bv_range=(0, -40, 80, 40))
     if gt_boxes is not None:
         corners3d = boxes_to_corners_3d(gt_boxes)
         fig = draw_corners3d(corners3d, fig=fig, color=(0, 0, 1), max_num=100)
+    if gt_keypoints is not None:
+        fig = draw_humanjoints3d(gt_keypoints, fig=fig, color=(0, 0, 1), max_num=100)
 
     if ref_boxes is not None and len(ref_boxes) > 0:
         ref_corners3d = boxes_to_corners_3d(ref_boxes)
@@ -166,6 +172,9 @@ def draw_scenes(points, gt_boxes=None, ref_boxes=None, ref_scores=None, ref_labe
                 cur_color = tuple(box_colormap[k % len(box_colormap)])
                 mask = (ref_labels == k)
                 fig = draw_corners3d(ref_corners3d[mask], fig=fig, color=cur_color, cls=ref_scores[mask], max_num=100)
+    if ref_keypoints is not None:
+        fig = draw_humanjoints3d(ref_keypoints, fig=fig, color=(0, 1, 0), max_num=100)
+
     mlab.view(azimuth=-179, elevation=54.0, distance=104.0, roll=90.0)
     return fig
 
@@ -211,5 +220,48 @@ def draw_corners3d(corners3d, fig, color=(1, 1, 1), line_width=2, cls=None, tag=
         i, j = 1, 4
         mlab.plot3d([b[i, 0], b[j, 0]], [b[i, 1], b[j, 1]], [b[i, 2], b[j, 2]], color=color, tube_radius=tube_radius,
                     line_width=line_width, figure=fig)
+
+    return fig
+
+
+def draw_humanjoints3d(joints, fig, color=(1, 1, 1), line_width=2, max_num=500, tube_radius=None):
+    """
+    :param corners3d: (N, K, 3)
+    :param fig:
+    :param color:
+    :param line_width:
+    :param cls:
+    :param tag:
+    :param max_num:
+    :return:
+    """
+    import mayavi.mlab as mlab
+    num = min(max_num, len(corners3d))
+    for n in range(num):
+        b = corners3d[n]  # (K, 3)
+
+        i, j = 13, 14
+        mlab.plot3d([b[i, 0], b[j, 0]], [b[i, 1], b[j, 1]], [b[i, 2], b[j, 2]], color=color, tube_radius=tube_radius,
+                     line_width=line_width, figure=fig)
+
+        # for k in range(0, 4):
+        #     i, j = k, (k + 1) % 4
+        #     mlab.plot3d([b[i, 0], b[j, 0]], [b[i, 1], b[j, 1]], [b[i, 2], b[j, 2]], color=color, tube_radius=tube_radius,
+        #                 line_width=line_width, figure=fig)
+
+        #     i, j = k + 4, (k + 1) % 4 + 4
+        #     mlab.plot3d([b[i, 0], b[j, 0]], [b[i, 1], b[j, 1]], [b[i, 2], b[j, 2]], color=color, tube_radius=tube_radius,
+        #                 line_width=line_width, figure=fig)
+
+        #     i, j = k, k + 4
+        #     mlab.plot3d([b[i, 0], b[j, 0]], [b[i, 1], b[j, 1]], [b[i, 2], b[j, 2]], color=color, tube_radius=tube_radius,
+        #                 line_width=line_width, figure=fig)
+
+        # i, j = 0, 5
+        # mlab.plot3d([b[i, 0], b[j, 0]], [b[i, 1], b[j, 1]], [b[i, 2], b[j, 2]], color=color, tube_radius=tube_radius,
+        #             line_width=line_width, figure=fig)
+        # i, j = 1, 4
+        # mlab.plot3d([b[i, 0], b[j, 0]], [b[i, 1], b[j, 1]], [b[i, 2], b[j, 2]], color=color, tube_radius=tube_radius,
+        #             line_width=line_width, figure=fig)
 
     return fig

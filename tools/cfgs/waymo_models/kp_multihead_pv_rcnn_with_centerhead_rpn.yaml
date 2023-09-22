@@ -8,7 +8,9 @@ MODEL:
     NAME: PVRCNN_KP
 
     # Freeze apart from roi_head
-    FREEZE_LAYERS: ['vfe', 'backbone_3d', 'map_to_bev_module', 'pfe', 'backbone_2d', 'dense_head',  'point_head']
+    # FREEZE_LAYERS: ['vfe', 'backbone_3d', 'map_to_bev_module', 'pfe', 'backbone_2d', 'dense_head', 'point_head', 'roi_head::roi_grid_pool_layer', 'roi_head::shared_fc_layer', 'roi_head::cls_layers', 'roi_head::reg_layers']
+    # FREEZE_LAYERS: ['vfe', 'backbone_3d', 'map_to_bev_module', 'pfe', 'backbone_2d', 'roi_head::roi_grid_pool_layer']
+    # FREEZE_LAYERS: ['vfe', 'backbone_3d', 'map_to_bev_module', 'pfe', 'backbone_2d']
 
     VFE:
         NAME: MeanVFE
@@ -120,12 +122,14 @@ MODEL:
             }
 
     ROI_HEAD:
-        NAME: PVRCNNHeadKP
+        NAME: PVRCNNHeadKPMultihead
         CLASS_AGNOSTIC: True
 
         SHARED_FC: [256, 256]
         CLS_FC: [256, 256]
         REG_FC: [256, 256]
+        SHARED_FC_KP: [256, 256, 256]
+        REG_FC_KP: [256, 256, 256]
         DP_RATIO: 0.3
 
         NMS_CONFIG:
@@ -140,7 +144,7 @@ MODEL:
                 MULTI_CLASSES_NMS: False
                 NMS_PRE_MAXSIZE: 1024
                 NMS_POST_MAXSIZE: 100
-                NMS_THRESH: 0.7
+                NMS_THRESH: 0.85
                 SCORE_THRESH: 0.1
 
 #                NMS_PRE_MAXSIZE: 4096
@@ -174,26 +178,36 @@ MODEL:
         LOSS_CONFIG:
             CLS_LOSS: BinaryCrossEntropy
             REG_LOSS: smooth-l1
-            REG_LOSS_KP: smooth-l1  # smooth-l1 | oks
+            REG_LOSS_KP: smooth-l1  # smooth-l1
             CORNER_LOSS_REGULARIZATION: True
             LOSS_WEIGHTS: {
                 'rcnn_cls_weight': 1.0,
-                'rcnn_reg_weight': 5.0,
+                'rcnn_reg_weight': 1.0,
                 'rcnn_kp_reg_weight': 1.0,
                 'rcnn_corner_weight': 1.0,
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
                 'code_weights_kp': [
-                    1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-                    1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-                    1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-                    1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-                    1.0, 1.0, 1.0, 1.0, 1.0, 1.0
+                    # 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                    # 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                    # 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                    # 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                    # 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
+                    0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2,
+                    0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2,
+                    0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2,
+                    0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2,
+                    0.2, 0.2, 0.2, 0.2, 0.2, 0.2
+                    # 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
+                    # 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
+                    # 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
+                    # 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
+                    # 0.1, 0.1, 0.1, 0.1, 0.1, 0.1
                 ],
             }
 
     POST_PROCESSING:
         RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
-        SCORE_THRESH: 0.1
+        SCORE_THRESH: 0.5
         OUTPUT_RAW_SCORE: False
 
         EVAL_METRIC: waymo
@@ -211,7 +225,7 @@ OPTIMIZATION:
     NUM_EPOCHS: 30
 
     OPTIMIZER: adam_onecycle
-    LR: 0.01
+    LR: 0.003
     WEIGHT_DECAY: 0.001
     MOMENTUM: 0.9
 

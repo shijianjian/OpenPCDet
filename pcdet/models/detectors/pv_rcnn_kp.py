@@ -9,11 +9,25 @@ class PVRCNN_KP(PVRCNN):
     def build_networks(self):
 
         def _freeze_module(module, module_name):
-            freeze_list = self.model_cfg.FREEZE_LAYERS
-            if module_name not in freeze_list:
+            if "FREEZE_LAYERS" not in self.model_cfg:
                 return
-            for param in module.parameters():
-                param.requires_grad = False
+            # Support partial freezing like roi_head:shared_layers
+            freeze_modules = [mod.split("::")[0] for mod in self.model_cfg.FREEZE_LAYERS]
+            if module_name not in freeze_modules:
+                return
+            partially = False
+            part = None
+            for mod in self.model_cfg.FREEZE_LAYERS:
+                splits = mod.split("::")
+                if module_name == splits[0] and len(splits) == 2:
+                    partially = True
+                    part = splits[1]
+            if part is not None:
+                for param in getattr(module, part).parameters():
+                    param.requires_grad = False
+            else:
+                for param in module.parameters():
+                    param.requires_grad = False
 
         model_info_dict = {
             'module_list': [],
@@ -130,7 +144,7 @@ class PVRCNN_KP(PVRCNN):
                 final_labels = label_preds[selected]
                 final_boxes = box_preds[selected]
                 final_kps = kp_preds[selected]
-                    
+
             recall_dict = self.generate_recall_record(
                 box_preds=final_boxes if 'rois' not in batch_dict else src_box_preds,
                 recall_dict=recall_dict, batch_index=index, data_dict=batch_dict,

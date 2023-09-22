@@ -28,7 +28,7 @@ class OksLoss(nn.Module):
         super().__init__()
 
         self.code_weights = np.array(code_weights, dtype=np.float32)
-        self.code_weights = torch.from_numpy(self.code_weights).reshape(-1, 3).mean(-1)
+        self.code_weights = torch.from_numpy(self.code_weights).reshape(-1, 3).mean(-1)[None]
 
     def forward(self,
                 output: Tensor,
@@ -84,5 +84,6 @@ class OksLoss(nn.Module):
             area = torch.norm(bboxes[..., 3:6], dim=-1)
             dist = dist / area.clip(min=1e-8).unsqueeze(-1)
 
-        return (torch.exp(-dist.pow(2) / 2) * self.code_weights * mask).sum(
+        return (torch.exp(-dist.pow(2) / 2) * torch.as_tensor(
+            self.code_weights, device=dist.device) * mask).sum(
             dim=-1) / mask.sum(dim=-1).clip(min=1e-8)

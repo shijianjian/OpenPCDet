@@ -21,17 +21,23 @@ from ..dataset import DatasetTemplate
 
 
 class WaymoDataset(DatasetTemplate):
-    def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None):
+    def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None, split=None):
         super().__init__(
             dataset_cfg=dataset_cfg, class_names=class_names, training=training, root_path=root_path, logger=logger
         )
         self.data_path = self.root_path / self.dataset_cfg.PROCESSED_DATA_TAG
-        self.split = self.dataset_cfg.DATA_SPLIT[self.mode]
+        self._split_in = split
+        if split is not None:
+            mode = split
+            assert mode == "train" or mode == "test"
+        else:
+            mode = self.mode
+        self.split = self.dataset_cfg.DATA_SPLIT[mode]
         split_dir = self.root_path / 'ImageSets' / (self.split + '.txt')
         self.sample_sequence_list = [x.strip() for x in open(split_dir).readlines()]
 
         self.infos = []
-        self.seq_name_to_infos = self.include_waymo_data(self.mode)
+        self.seq_name_to_infos = self.include_waymo_data(mode)
 
         self.use_shared_memory = self.dataset_cfg.get('USE_SHARED_MEMORY', False) and self.training
         if self.use_shared_memory:
@@ -40,7 +46,7 @@ class WaymoDataset(DatasetTemplate):
 
         if self.dataset_cfg.get('USE_PREDBOX', False):
             self.pred_boxes_dict = self.load_pred_boxes_to_dict(
-                pred_boxes_path=self.dataset_cfg.ROI_BOXES_PATH[self.mode]
+                pred_boxes_path=self.dataset_cfg.ROI_BOXES_PATH[mode]
             )
         else:
             self.pred_boxes_dict = {}
@@ -54,7 +60,12 @@ class WaymoDataset(DatasetTemplate):
         split_dir = self.root_path / 'ImageSets' / (self.split + '.txt')
         self.sample_sequence_list = [x.strip() for x in open(split_dir).readlines()]
         self.infos = []
-        self.seq_name_to_infos = self.include_waymo_data(self.mode)
+        if self._split_in is not None:
+            mode = split
+            assert mode == "train" or mode == "test"
+        else:
+            mode = self.mode
+        self.seq_name_to_infos = self.include_waymo_data(mode)
 
     def include_waymo_data(self, mode):
         self.logger.info('Loading Waymo dataset')

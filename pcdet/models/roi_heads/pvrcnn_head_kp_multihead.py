@@ -77,6 +77,10 @@ class PVRCNNHeadKPMultihead(PVRCNNHead):
                 (reg_targets * kp_mask[..., None]).view(rcnn_batch_size, -1).unsqueeze(dim=0),
             )  # [B, M, 42]
 
+            rcnn_kp_loss_reg = (
+                rcnn_kp_loss_reg[..., 0::3] + rcnn_kp_loss_reg[..., 1::3] + rcnn_kp_loss_reg[..., 2::3]
+            ) / (code_size // 3)
+
             rcnn_kp_loss_reg = (rcnn_kp_loss_reg.view(rcnn_batch_size, -1) * fg_mask.unsqueeze(dim=-1).float()).sum() / max(fg_sum, 1)
             rcnn_kp_loss_reg = rcnn_kp_loss_reg * loss_cfgs.LOSS_WEIGHTS['rcnn_kp_reg_weight']
             tb_dict['rcnn_kp_loss_reg'] = rcnn_kp_loss_reg.item()

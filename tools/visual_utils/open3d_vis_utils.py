@@ -62,7 +62,6 @@ def draw_scenes(points, gt_boxes=None, ref_boxes=None, ref_labels=None, ref_scor
         gt_boxes = gt_boxes.cpu().numpy()
     if isinstance(ref_boxes, torch.Tensor):
         ref_boxes = ref_boxes.cpu().numpy()
-    print(gt_boxes, ref_boxes, ref_labels, gt_boxes[..., 6] * 180 / 3.14159265358979323846, ref_boxes[..., 6] * 180 / 3.14159265358979323846)
     if isinstance(gt_keypoints, torch.Tensor):
         gt_keypoints = gt_keypoints.cpu().numpy()
     if isinstance(ref_keypoints, torch.Tensor):

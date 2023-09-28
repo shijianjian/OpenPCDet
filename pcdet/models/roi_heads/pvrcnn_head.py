@@ -20,7 +20,7 @@ class PVRCNNHead(RoIHeadTemplate):
         shared_fc_list = []
         for k in range(0, self.model_cfg.SHARED_FC.__len__()):
             shared_fc_list.extend([
-                nn.Conv1d(pre_channel, self.model_cfg.SHARED_FC[k], kernel_size=1, bias=False),
+                nn.Conv1d(pre_channel, self.model_cfg.SHARED_FC[k], kernel_size=1, bias=False, groups=self.model_cfg.GROUPS),
                 nn.BatchNorm1d(self.model_cfg.SHARED_FC[k]),
                 nn.ReLU()
             ])
@@ -32,12 +32,14 @@ class PVRCNNHead(RoIHeadTemplate):
         self.shared_fc_layer = nn.Sequential(*shared_fc_list)
 
         self.cls_layers = self.make_fc_layers(
-            input_channels=pre_channel, output_channels=self.num_class, fc_list=self.model_cfg.CLS_FC
+            input_channels=pre_channel, output_channels=self.num_class, fc_list=self.model_cfg.CLS_FC,
+            groups=self.model_cfg.GROUPS
         )
         self.reg_layers = self.make_fc_layers(
             input_channels=pre_channel,
             output_channels=self.box_coder.code_size * self.num_class,
-            fc_list=self.model_cfg.REG_FC
+            fc_list=self.model_cfg.REG_FC,
+            groups=self.model_cfg.GROUPS
         )
         self.init_weights(weight_init='xavier')
 

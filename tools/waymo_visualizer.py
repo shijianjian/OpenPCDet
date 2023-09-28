@@ -26,7 +26,7 @@ def parse_config():
                         help='specify the config for demo')
     parser.add_argument('--data_path', type=str, default='../data/waymo',
                         help='specify the point cloud data file or directory')
-    parser.add_argument('--ckpt', type=str, default='/home/shij0c/git/KP3D/OpenPCDet/output/cfgs/waymo_models/kp_multihead_pv_rcnn_with_centerhead_rpn/default/ckpt/checkpoint_epoch_20.pth')
+    parser.add_argument('--ckpt', type=str, default='/home/shij0c/git/KP3D/OpenPCDet/output/cfgs/waymo_models/kp_multihead_pv_rcnn_with_centerhead_rpn/default/ckpt/checkpoint_epoch_40.pth')
     parser.add_argument('--ext', type=str, default='.bin', help='specify the extension of your point cloud data file')
 
     args = parser.parse_args()
@@ -42,7 +42,7 @@ def main():
     logger.info('-----------------Quick Demo of OpenPCDet-------------------------')
     demo_dataset = WaymoDatasetKP(
         dataset_cfg=cfg.DATA_CONFIG, class_names=cfg.CLASS_NAMES, training=False,  # For visualizing augmentations
-        root_path=Path(args.data_path), logger=logger, split="train"
+        root_path=Path(args.data_path), logger=logger
     )
     logger.info(f'Total number of samples: \t{len(demo_dataset)}')
 

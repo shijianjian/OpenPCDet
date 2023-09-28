@@ -10,6 +10,7 @@ from .caddn import CaDDN
 from .voxel_rcnn import VoxelRCNN
 from .centerpoint import CenterPoint
 from .pv_rcnn_plusplus import PVRCNNPlusPlus
+from .pv_rcnn_plusplus_kp import PVRCNNPlusPlus_KP
 from .mppnet import MPPNet
 from .mppnet_e2e import MPPNetE2E
 from .pillarnet import PillarNet
@@ -31,6 +32,7 @@ __all__ = {
     'CenterPoint': CenterPoint,
     'PillarNet': PillarNet,
     'PVRCNNPlusPlus': PVRCNNPlusPlus,
+    'PVRCNNPlusPlus_KP': PVRCNNPlusPlus_KP,
     'MPPNet': MPPNet,
     'MPPNetE2E': MPPNetE2E,
     'PillarNet': PillarNet,

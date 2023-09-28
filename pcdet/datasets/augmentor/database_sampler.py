@@ -391,6 +391,7 @@ class DataBaseSampler(object):
         gt_boxes_mask = data_dict['gt_boxes_mask']
         gt_boxes = data_dict['gt_boxes'][gt_boxes_mask]
         gt_names = data_dict['gt_names'][gt_boxes_mask]
+
         points = data_dict['points']
         if self.sampler_cfg.get('USE_ROAD_PLANE', False) and mv_height is None:
             if self.sampler_cfg.get("IS_KEYPOINT", False):
@@ -471,11 +472,11 @@ class DataBaseSampler(object):
         data_dict['points'] = points
 
         if sampled_gt_kps is not None:
-            data_dict['keypoint_location'] = np.concatenate([data_dict['keypoint_location'], sampled_gt_kps], axis=0)
+            data_dict['keypoint_location'] = np.concatenate([data_dict['keypoint_location'][gt_boxes_mask], sampled_gt_kps], axis=0)
         if sampled_gt_kps_visibility is not None:
-            data_dict['keypoint_visibility'] = np.concatenate([data_dict['keypoint_visibility'], sampled_gt_kps_visibility], axis=0)
+            data_dict['keypoint_visibility'] = np.concatenate([data_dict['keypoint_visibility'][gt_boxes_mask], sampled_gt_kps_visibility], axis=0)
         if sampled_gt_kps_mask is not None:
-            data_dict['keypoint_mask'] = np.concatenate([data_dict['keypoint_mask'], sampled_gt_kps_mask], axis=0)
+            data_dict['keypoint_mask'] = np.concatenate([data_dict['keypoint_mask'][gt_boxes_mask], sampled_gt_kps_mask], axis=0)
 
         if self.img_aug_type is not None:
             if self.sampler_cfg.get("IS_KEYPOINT", False):
@@ -552,23 +553,22 @@ class DataBaseSampler(object):
 
                 existed_boxes = np.concatenate((existed_boxes, valid_sampled_boxes[:, :existed_boxes.shape[-1]]), axis=0)
                 if 'keypoint_location' in data_dict:
-                    existed_kps = np.concatenate((existed_kps, valid_sampled_kps[:, :, :existed_kps.shape[-1]]), axis=0)
-                    existed_kps_visibility = np.concatenate((existed_kps_visibility, valid_sampled_kp_visibility[:, :existed_kps_visibility.shape[-1]]), axis=0)
-                    existed_kps_mask = np.concatenate((existed_kps_mask, valid_sampled_kp_mask[:, :existed_kps_mask.shape[-1]]), axis=0)
+                    existed_kps = np.concatenate((existed_kps, valid_sampled_kps), axis=0)
+                    existed_kps_visibility = np.concatenate((existed_kps_visibility, valid_sampled_kp_visibility), axis=0)
+                    existed_kps_mask = np.concatenate((existed_kps_mask, valid_sampled_kp_mask), axis=0)
                 total_valid_sampled_dict.extend(valid_sampled_dict)
 
                 # if exists:
                 #     sampled_keypoints = np.stack([x['kp3d_lidar'] for x in sampled_dict], axis=0).astype(np.float32)
                 #     valid_sampled_kps = sampled_keypoints[valid_mask]
                 #     existed_kps = np.concatenate((existed_kps, valid_sampled_kps[:, :existed_kps.shape[-1]]), axis=0)
-
         sampled_gt_boxes = existed_boxes[gt_boxes.shape[0]:, :]
         if 'keypoint_location' in data_dict:
             sampled_gt_kps = existed_kps[gt_kps.shape[0]:, :]
             sampled_gt_kps_visibility = existed_kps_visibility[gt_kps_visibility.shape[0]:, :]
             sampled_gt_kps_mask = existed_kps_mask[gt_kps_mask.shape[0]:, :]
-        # assert False, (gt_kps.shape, sampled_gt_kps.shape, existed_kps.shape)
         if total_valid_sampled_dict.__len__() > 0:
+
             sampled_gt_boxes2d = np.concatenate(sampled_gt_boxes2d, axis=0) if len(sampled_gt_boxes2d) > 0 else None
             sampled_mv_height = np.concatenate(sampled_mv_height, axis=0) if len(sampled_mv_height) > 0 else None
 
@@ -578,6 +578,10 @@ class DataBaseSampler(object):
             )
 
         data_dict.pop('gt_boxes_mask')
+        if 'keypoint_location' in data_dict:
+            assert data_dict['keypoint_location'].shape[0] == data_dict['keypoint_visibility'].shape[0] == data_dict['keypoint_mask'].shape[0] == data_dict['gt_boxes'].shape[0], (
+                data_dict['keypoint_location'].shape, data_dict['keypoint_visibility'].shape, data_dict['keypoint_mask'].shape, data_dict['gt_boxes'].shape[0]
+            )
         return data_dict
 
     def add_without_updating_gt(self, data_dict, class_name, sample_group):

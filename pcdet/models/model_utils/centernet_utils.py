@@ -241,7 +241,7 @@ def decode_bbox_from_heatmap(heatmap, rot_cos, rot_sin, center, center_z, dim,
     return ret_pred_dicts
 
 
-def decode_keypoints_from_heatmap(heatmap, rot_cos, rot_sin, center, center_z, dim,
+def decode_keypoints_from_heatmap(heatmap, offset_kp_x, offset_kp_y, kp_z,
                                   point_cloud_range=None, voxel_size=None, feature_map_stride=None, vel=None, iou=None, K=100,
                                   circle_nms=False, score_thresh=None, post_center_limit_range=None):
     batch_size, num_class, _, _ = heatmap.size()
@@ -251,16 +251,61 @@ def decode_keypoints_from_heatmap(heatmap, rot_cos, rot_sin, center, center_z, d
         assert False, 'not checked yet'
         heatmap = _nms(heatmap)
 
-    scores, inds, class_ids, ys, xs = _topk(heatmap, K=K)
-    center = _transpose_and_gather_feat(center, inds).view(batch_size, K, 2)
-    rot_sin = _transpose_and_gather_feat(rot_sin, inds).view(batch_size, K, 1)
-    rot_cos = _transpose_and_gather_feat(rot_cos, inds).view(batch_size, K, 1)
-    center_z = _transpose_and_gather_feat(center_z, inds).view(batch_size, K, 1)
-    dim = _transpose_and_gather_feat(dim, inds).view(batch_size, K, 3)
+    scores, inds, class_ids, center_ys, center_xs = _topk(heatmap, K=K)
+    offset_kp_x = _transpose_and_gather_feat(offset_kp_x, inds).view(batch_size, K, 1)
+    offset_kp_y = _transpose_and_gather_feat(offset_kp_y, inds).view(batch_size, K, 1)
+    kp_z = _transpose_and_gather_feat(kp_z, inds).view(batch_size, K, 1)
 
-    angle = torch.atan2(rot_sin, rot_cos)
-    xs = xs.view(batch_size, K, 1) + center[:, :, 0:1]
-    ys = ys.view(batch_size, K, 1) + center[:, :, 1:2]
+    center_xs = center_xs.view(batch_size, K, 1)
+    center_ys = center_ys.view(batch_size, K, 1)
+
+    center_xs = center_xs * feature_map_stride * voxel_size[0] + point_cloud_range[0]
+    center_ys = center_ys * feature_map_stride * voxel_size[1] + point_cloud_range[1]
+
+    kp_x = offset_kp_x.view(batch_size, K, 1) + center_xs
+    kp_y = offset_kp_y.view(batch_size, K, 1) + center_ys
+    kp_z = kp_z.view(batch_size, K, 1)
+
+    if iou is not None:
+        iou = _transpose_and_gather_feat(iou, inds).view(batch_size, K)
+
+    final_kp_preds = torch.stack([kp_x, kp_y, kp_z], dim=-1).view(batch_size, K, -1)
+    final_scores = scores.view(batch_size, K)
+    final_class_ids = class_ids.view(batch_size, K)
+
+    assert post_center_limit_range is not None
+    mask = (final_kp_preds[..., -3:] >= post_center_limit_range[:3]).all(2)
+    mask &= (final_kp_preds[..., -3:] <= post_center_limit_range[3:]).all(2)
+
+    if score_thresh is not None:
+        mask &= (final_scores > score_thresh)
+
+    ret_pred_dicts = []
+    for k in range(batch_size):
+        cur_mask = mask[k]
+        cur_kps = final_kp_preds[k, cur_mask]
+        cur_scores = final_scores[k, cur_mask]
+        cur_labels = final_class_ids[k, cur_mask]
+
+        if circle_nms:
+            assert False, 'not checked yet'
+            centers = cur_boxes[:, [0, 1]]
+            boxes = torch.cat((centers, scores.view(-1, 1)), dim=1)
+            keep = _circle_nms(boxes, min_radius=min_radius, post_max_size=nms_post_max_size)
+
+            cur_boxes = cur_boxes[keep]
+            cur_scores = cur_scores[keep]
+            cur_labels = cur_labels[keep]
+
+        ret_pred_dicts.append({
+            'pred_keypoints': cur_kps,
+            'pred_scores': cur_scores,
+            'pred_labels': cur_labels
+        })
+
+        if iou is not None:
+            ret_pred_dicts[-1]['pred_iou'] = iou[k, cur_mask]
+    return ret_pred_dicts
 
 
 def _topk_1d(scores, batch_size, batch_idx, obj, K=40, nuscenes=False):

@@ -66,9 +66,9 @@ class DataAugmentor(object):
             if 'roi_boxes' in data_dict.keys():
                 num_frame, num_rois,dim = data_dict['roi_boxes'].shape
                 roi_boxes, _, _ = getattr(augmentor_utils, 'random_flip_along_%s' % cur_axis)(
-                    data_dict['roi_boxes'].reshape(-1,dim), np.zeros([1,3]), return_flip=True, enable=enable
+                    data_dict['roi_boxes'].reshape(-1, dim), np.zeros([1,3]), return_flip=True, enable=enable
                 )
-                data_dict['roi_boxes'] = roi_boxes.reshape(num_frame, num_rois,dim)
+                data_dict['roi_boxes'] = roi_boxes.reshape(num_frame, num_rois, dim)
             if 'keypoint_location' in data_dict.keys():
                 batchsize, n_joints, dim = data_dict["keypoint_location"].shape
                 _, keypoint_location, _ = getattr(augmentor_utils, 'random_flip_along_%s' % cur_axis)(
@@ -334,7 +334,6 @@ class DataAugmentor(object):
         Returns:
         """
         for cur_augmentor in self.data_augmentor_queue:
-            # print(cur_augmentor, data_dict['gt_boxes'].shape, data_dict['keypoint_location'].shape)
             data_dict = cur_augmentor(data_dict=data_dict)
 
         data_dict['gt_boxes'][:, 6] = common_utils.limit_period(

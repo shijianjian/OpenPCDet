@@ -10,7 +10,7 @@ DATA_SPLIT: {
 }
 
 SAMPLED_INTERVAL: {
-    'train': 1,
+    'train': 5,
     'test': 1
 }
 
@@ -44,8 +44,8 @@ DATA_AUGMENTOR:
              filter_by_difficulty: [-1],
           }
 
-          # add more Vehicle to vary the background. 
-          SAMPLE_GROUPS: ['Vehicle:15', 'Pedestrian:10', 'Cyclist:10']
+          # TODO: add more Vehicle to vary the background. 
+          SAMPLE_GROUPS: ['Pedestrian:10', 'Cyclist:10']
           NUM_POINT_FEATURES: 5
           REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
           LIMIT_WHOLE_SCENE: True

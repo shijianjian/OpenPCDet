@@ -198,7 +198,6 @@ class WaymoDatasetKP(WaymoDataset):
                 annos['keypoint_box_name'] = annos['keypoint_box_name'][mask]
                 gt_boxes_lidar = gt_boxes_lidar[mask]
                 annos['keypoint_box_num_points_in_gt'] = annos['keypoint_box_num_points_in_gt'][mask]
-
             input_dict.update({
                 'gt_names': annos['keypoint_box_name'],
                 'gt_boxes': gt_boxes_lidar,

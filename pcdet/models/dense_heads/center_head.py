@@ -69,7 +69,7 @@ class CenterHead(nn.Module):
             self.class_id_mapping_each_head.append(cur_class_id_mapping)
 
         total_classes = sum([len(x) for x in self.class_names_each_head])
-        assert total_classes == len(self.class_names), f'class_names_each_head={self.class_names_each_head}, total_classes={total_classes},'
+        assert total_classes == len(self.class_names), f'class_names_each_head={self.class_names_each_head}'
 
         norm_func = partial(nn.BatchNorm2d, eps=self.model_cfg.get('BN_EPS', 1e-5), momentum=self.model_cfg.get('BN_MOM', 0.1))
         self.shared_conv = nn.Sequential(

@@ -1,7 +1,7 @@
-CLASS_NAMES: ['Vehicle', 'Pedestrian', 'Cyclist']
+CLASS_NAMES: ['Vehicle', 'Cyclist']
 
 DATA_CONFIG:
-    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset.yaml
+    _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset_kp.yaml
 
 MODEL:
     NAME: CenterPointKP
@@ -30,7 +30,7 @@ MODEL:
         CLASS_AGNOSTIC: False
 
         CLASS_NAMES_EACH_HEAD: [
-            ['Pedestrian']
+            ['Vehicle', 'Pedestrian', 'Cyclist']
         ]
 
         SHARED_CONV_CHANNEL: 64
@@ -45,13 +45,14 @@ MODEL:
         #         'rot': {'out_channels': 2, 'num_conv': 2},
         #     }
         SEPARATE_HEAD_CFG:
-            HEAD_ORDER: [ 'center', 'center_z', 'kp', 'kp_z', 'visibility' ]
+            HEAD_ORDER: [ 'kp_x', 'kp_y', 'kp_z' ]
+            CENTER_ORDER: [ 'center', 'center_z' ]
             HEAD_DICT: {
-                'center': { 'out_channels': 2, 'num_conv': 2 },  # hip center
-                'center_z': { 'out_channels': 1, 'num_conv': 2 },  # hip center
-                'kp': { 'out_channels': 26, 'num_conv': 2 },
+                'kp_x': { 'out_channels': 13, 'num_conv': 2 },
+                'kp_y': { 'out_channels': 13, 'num_conv': 2 },
                 'kp_z': { 'out_channels': 13, 'num_conv': 2 },
-                'visibility': { 'out_channels': 13, 'num_conv': 2 },
+                'center': {'out_channels': 2, 'num_conv': 2},
+                'center_z': {'out_channels': 1, 'num_conv': 2},
             }
 
 
